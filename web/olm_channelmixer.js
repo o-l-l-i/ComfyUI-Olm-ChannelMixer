@@ -263,7 +263,7 @@ app.registerExtension({
         const drawY = y + (previewSize - drawHeight) / 2;
 
         ctx.save();
-        ctx.globalAlpha = 0.95;
+        ctx.globalAlpha = 1.0;
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
 
         ctx.strokeStyle = "#888";
