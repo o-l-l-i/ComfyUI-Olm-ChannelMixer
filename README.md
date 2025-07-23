@@ -23,6 +23,10 @@ Use it for:
 - Cinematic and stylized grading.
 - Emulating analog color effects.
 
+**A few example adjustments:**
+
+![Olm Channel Mixer examples](./assets/olm_channelmixer_comp.png)
+
 ---
 
 ## 🎯 Why Use This Tool?
