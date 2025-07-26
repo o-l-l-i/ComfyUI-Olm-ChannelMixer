@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+
 import { ChannelSliderWidget } from "./channelslider_widget.js";
 
 function removeInputs(node, filter) {
@@ -65,7 +66,6 @@ function createPreviewUpdateFunction(node) {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const mixer = node.properties.mixer_values;
-
       const matrix = [
         [mixer.Red.r, mixer.Red.g, mixer.Red.b],
         [mixer.Green.r, mixer.Green.g, mixer.Green.b],
@@ -74,11 +74,16 @@ function createPreviewUpdateFunction(node) {
       const payload = {
         matrix: matrix,
       };
-      fetch("/olm/api/channelmixer/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
+      fetch(
+        `/olm/api/channelmixer/update?key=${encodeURIComponent(
+          node.previewCacheKey
+        )}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      )
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "success" && data.updatedimage) {
@@ -100,7 +105,6 @@ function createPreviewUpdateFunction(node) {
 function createChannelSlider(node, inputChannel, color, onChange) {
   const channelKey = inputChannel.charAt(0).toLowerCase();
   const label = inputChannel;
-
   return new ChannelSliderWidget(
     node,
     `slider_${channelKey}`,
@@ -244,13 +248,10 @@ app.registerExtension({
       const previewSize = Math.min(this.size[0] * 0.95, availableHeight);
       const previewCenterX = this.size[0] / 2.0;
       const y = previewY;
-
       if (this._previewImage && this._previewImage.complete) {
         const img = this._previewImage;
         const aspect = img.width / img.height;
-
         let drawWidth, drawHeight;
-
         if (aspect >= 1) {
           drawWidth = previewSize;
           drawHeight = previewSize / aspect;
@@ -258,14 +259,11 @@ app.registerExtension({
           drawHeight = previewSize;
           drawWidth = previewSize * aspect;
         }
-
         const drawX = previewCenterX - drawWidth / 2;
         const drawY = y + (previewSize - drawHeight) / 2;
-
         ctx.save();
         ctx.globalAlpha = 1.0;
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-
         ctx.strokeStyle = "#888";
         ctx.lineWidth = 1;
         ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
@@ -276,7 +274,6 @@ app.registerExtension({
         ctx.font = "12px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
         ctx.fillText(
           "Run the graph once to generate preview.",
           previewCenterX,
@@ -294,15 +291,12 @@ app.registerExtension({
     nodeType.prototype.onDrawForeground = function (ctx) {
       originalOnDrawForeground?.call(this, ctx);
       if (this.flags.collapsed) return;
-
       ctx.save();
       const widgetHeight = this.widgets
         .filter((w) => !w.hidden && typeof w.computeSize === "function")
         .reduce((acc, w) => acc + w.computeSize([this.size[0]])[1], 0);
-
       const startY = widgetHeight + 50;
       const sliderSpacing = 40;
-
       [this.sliderR, this.sliderG, this.sliderB].forEach((slider, i) => {
         slider.width = this.size[0] * 0.85;
         slider.x = this.size[0] / 2.0 - slider.width / 2.0;
@@ -312,10 +306,8 @@ app.registerExtension({
         slider.draw(ctx);
         ctx.restore();
       });
-
       const previewY = startY + 3 * sliderSpacing + 75;
       this.drawPreviewImage(ctx, previewY);
-
       ctx.restore();
     };
 
@@ -364,7 +356,6 @@ app.registerExtension({
     nodeType.prototype.onMouseLeave = function (event, localPos, graphCanvas) {
       if (originalOnMouseLeave?.call(this, event, localPos, graphCanvas))
         return true;
-
       if (this.custom_widgets) {
         for (const w of this.custom_widgets) {
           if (
@@ -388,7 +379,6 @@ app.registerExtension({
           }
         });
       }
-
       if (this.widgets) {
         for (const outCh of ["Red", "Green", "Blue"]) {
           for (const inCh of ["Red", "Green", "Blue"]) {
@@ -401,7 +391,6 @@ app.registerExtension({
           }
         }
       }
-
       removeInputs(
         this,
         (input) =>
@@ -409,7 +398,6 @@ app.registerExtension({
           input.type === "STRING" ||
           input.type === "BOOLEAN"
       );
-
       this.forceUpdate();
     };
 
@@ -432,7 +420,17 @@ app.registerExtension({
 
     nodeType.prototype.onExecuted = function (message) {
       onExecutedOriginal?.apply(this, arguments);
-      this.requestPreviewUpdate();
+      let key = message?.cache_key;
+      if (Array.isArray(key)) key = key.join("");
+      if (typeof key === "string") {
+        this.previewCacheKey = key;
+        this.requestPreviewUpdate();
+      } else {
+        console.warn(
+          `[OlmChannelMixer] Node ${this.id}: Invalid cache key in onExecuted:`,
+          key
+        );
+      }
     };
   },
 });

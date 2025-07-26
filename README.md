@@ -7,7 +7,7 @@ An interactive, classic **channel mixer** color adjustment node for ComfyUI, wit
 - **Author:** Olli Sorjonen
 - **GitHub:** https://github.com/o-l-l-i
 - **X:** https://x.com/Olmirad
-- **Version:** 1.0.0 (Initial release)
+- **Version:** 1.0.1 (preview fixes)
 
 ---
 
