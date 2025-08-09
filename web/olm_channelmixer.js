@@ -1,5 +1,4 @@
 import { app } from "../../scripts/app.js";
-
 import { ChannelSliderWidget } from "./channelslider_widget.js";
 
 function removeInputs(node, filter) {
@@ -8,13 +7,19 @@ function removeInputs(node, filter) {
     node.type !== "OlmChannelMixer" ||
     node.id === -1 ||
     !Array.isArray(node.inputs)
-  )
+  ) {
     return;
-
+  }
   for (let i = node.inputs.length - 1; i >= 0; i--) {
-    const input = node.inputs[i];
-    if (filter(input)) {
-      node.removeInput(i);
+    if (filter(node.inputs[i])) {
+      try {
+        node.removeInput(i);
+      } catch (error) {
+        console.warn(
+          `[OlmChannelMixer] Node ${node.id}: skipping input removal (graph not ready):`,
+          node.inputs[i].name
+        );
+      }
     }
   }
 }
