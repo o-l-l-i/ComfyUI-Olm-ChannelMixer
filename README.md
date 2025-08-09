@@ -7,7 +7,7 @@ An interactive, classic **channel mixer** color adjustment node for ComfyUI, wit
 - **Author:** Olli Sorjonen
 - **GitHub:** https://github.com/o-l-l-i
 - **X:** https://x.com/Olmirad
-- **Version:** 1.0.1 (preview fixes)
+- **Version:** 1.0.1.1 (Chain original mouse event handlers to maintain subgraph header button functionality in ComfyUI frontend 1.24.4 and later.)
 
 ---
 
@@ -117,7 +117,13 @@ Please open an issue if you find something broken.
 
 And send feedback and suggestions if you feel something could be improved, but I can't promise quick responses and changes.
 
+---
 
+## Version history
+
+- **1.0.1.1** Chain original mouse event handlers to maintain subgraph header button functionality in ComfyUI frontend 1.24.4 and later.
+- **1.0.1** Preview improvements.
+- **1.0** Initial release.
 
 
 ---

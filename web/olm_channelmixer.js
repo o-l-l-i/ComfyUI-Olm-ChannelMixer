@@ -10,6 +10,7 @@ function removeInputs(node, filter) {
     !Array.isArray(node.inputs)
   )
     return;
+
   for (let i = node.inputs.length - 1; i >= 0; i--) {
     const input = node.inputs[i];
     if (filter(input)) {
@@ -66,6 +67,7 @@ function createPreviewUpdateFunction(node) {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const mixer = node.properties.mixer_values;
+
       const matrix = [
         [mixer.Red.r, mixer.Red.g, mixer.Red.b],
         [mixer.Green.r, mixer.Green.g, mixer.Green.b],
@@ -105,6 +107,7 @@ function createPreviewUpdateFunction(node) {
 function createChannelSlider(node, inputChannel, color, onChange) {
   const channelKey = inputChannel.charAt(0).toLowerCase();
   const label = inputChannel;
+
   return new ChannelSliderWidget(
     node,
     `slider_${channelKey}`,
@@ -159,10 +162,6 @@ app.registerExtension({
     const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
     const originalOnDrawForeground = nodeType.prototype.onDrawForeground;
     const originalOnConfigure = nodeType.prototype.onConfigure;
-    const originalOnMouseDown = nodeType.prototype.onMouseDown;
-    const originalOnMouseMove = nodeType.prototype.onMouseMove;
-    const originalOnMouseUp = nodeType.prototype.onMouseUp;
-    const originalOnMouseLeave = nodeType.prototype.onMouseLeave;
     const onExecutedOriginal = nodeType.prototype.onExecuted;
 
     nodeType.prototype.onNodeCreated = function () {
@@ -248,10 +247,13 @@ app.registerExtension({
       const previewSize = Math.min(this.size[0] * 0.95, availableHeight);
       const previewCenterX = this.size[0] / 2.0;
       const y = previewY;
+
       if (this._previewImage && this._previewImage.complete) {
         const img = this._previewImage;
         const aspect = img.width / img.height;
+
         let drawWidth, drawHeight;
+
         if (aspect >= 1) {
           drawWidth = previewSize;
           drawHeight = previewSize / aspect;
@@ -259,11 +261,14 @@ app.registerExtension({
           drawHeight = previewSize;
           drawWidth = previewSize * aspect;
         }
+
         const drawX = previewCenterX - drawWidth / 2;
         const drawY = y + (previewSize - drawHeight) / 2;
+
         ctx.save();
         ctx.globalAlpha = 1.0;
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
         ctx.strokeStyle = "#888";
         ctx.lineWidth = 1;
         ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
@@ -274,6 +279,7 @@ app.registerExtension({
         ctx.font = "12px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+
         ctx.fillText(
           "Run the graph once to generate preview.",
           previewCenterX,
@@ -291,12 +297,15 @@ app.registerExtension({
     nodeType.prototype.onDrawForeground = function (ctx) {
       originalOnDrawForeground?.call(this, ctx);
       if (this.flags.collapsed) return;
+
       ctx.save();
       const widgetHeight = this.widgets
         .filter((w) => !w.hidden && typeof w.computeSize === "function")
         .reduce((acc, w) => acc + w.computeSize([this.size[0]])[1], 0);
+
       const startY = widgetHeight + 50;
       const sliderSpacing = 40;
+
       [this.sliderR, this.sliderG, this.sliderB].forEach((slider, i) => {
         slider.width = this.size[0] * 0.85;
         slider.x = this.size[0] / 2.0 - slider.width / 2.0;
@@ -306,69 +315,93 @@ app.registerExtension({
         slider.draw(ctx);
         ctx.restore();
       });
+
       const previewY = startY + 3 * sliderSpacing + 75;
       this.drawPreviewImage(ctx, previewY);
+
       ctx.restore();
     };
 
-    nodeType.prototype.onMouseDown = function (event, localPos, graphCanvas) {
-      if (originalOnMouseDown?.call(this, event, localPos, graphCanvas))
-        return true;
-      if (this.custom_widgets) {
-        for (const w of this.custom_widgets) {
-          if (
-            typeof w.onMouseDown === "function" &&
-            w.onMouseDown(event, localPos)
-          )
-            return true;
-        }
-      }
-      return false;
-    };
+    function patchNodeMouseHandlers(node) {
+      const originalOnMouseDown = node.onMouseDown;
+      const originalOnMouseMove = node.onMouseMove;
+      const originalOnMouseUp = node.onMouseUp;
+      const originalOnMouseLeave = node.onMouseLeave;
 
-    nodeType.prototype.onMouseMove = function (event, localPos, graphCanvas) {
-      if (originalOnMouseMove?.call(this, event, localPos, graphCanvas))
-        return true;
-      if (this.custom_widgets) {
-        for (const w of this.custom_widgets) {
-          if (
-            typeof w.onMouseMove === "function" &&
-            w.onMouseMove(event, localPos)
-          )
-            return true;
-        }
-      }
-      return false;
-    };
+      function dispatch(eventType, event, localPos) {
+        if (!node.custom_widgets) return false;
 
-    nodeType.prototype.onMouseUp = function (event, localPos, graphCanvas) {
-      if (originalOnMouseUp?.call(this, event, localPos, graphCanvas))
-        return true;
-      if (this.custom_widgets) {
-        for (const w of this.custom_widgets) {
-          if (typeof w.onMouseUp === "function" && w.onMouseUp(event, localPos))
-            return true;
-        }
-      }
-      return false;
-    };
-
-    nodeType.prototype.onMouseLeave = function (event, localPos, graphCanvas) {
-      if (originalOnMouseLeave?.call(this, event, localPos, graphCanvas))
-        return true;
-      if (this.custom_widgets) {
-        for (const w of this.custom_widgets) {
+        for (const widget of node.custom_widgets) {
+          const handler = widget[eventType];
           if (
-            typeof w.onMouseUp === "function" &&
-            w.onMouseUp &&
-            w.onMouseUp(event, localPos)
+            typeof handler === "function" &&
+            handler.call(widget, event, localPos)
           ) {
             return true;
           }
         }
+
+        return false;
       }
-      return false;
-    };
+
+      node.onMouseDown = function (event, localPos, graphCanvas) {
+        const wasHandled = originalOnMouseDown?.call(
+          this,
+          event,
+          localPos,
+          graphCanvas
+        );
+        if (wasHandled) return true;
+        return dispatch("onMouseDown", event, localPos);
+      };
+
+      node.onMouseMove = function (event, localPos, graphCanvas) {
+        const wasHandled = originalOnMouseMove?.call(
+          this,
+          event,
+          localPos,
+          graphCanvas
+        );
+        if (wasHandled) return true;
+        return dispatch("onMouseMove", event, localPos);
+      };
+
+      node.onMouseUp = function (event, localPos, graphCanvas) {
+        const wasHandled = originalOnMouseUp?.call(
+          this,
+          event,
+          localPos,
+          graphCanvas
+        );
+        if (wasHandled) return true;
+        return dispatch("onMouseUp", event, localPos);
+      };
+
+      node.onMouseLeave = function (event, localPos, graphCanvas) {
+        const wasHandled = originalOnMouseLeave?.call(
+          this,
+          event,
+          localPos,
+          graphCanvas
+        );
+        if (wasHandled) return true;
+
+        const safePos = localPos ?? [
+          Number.NEGATIVE_INFINITY,
+          Number.NEGATIVE_INFINITY,
+        ];
+
+        for (const widget of this.custom_widgets || []) {
+          if (typeof widget.onMouseLeave === "function") {
+            widget.onMouseLeave(event, safePos);
+          } else if (typeof widget.onMouseUp === "function") {
+            const upHandled = widget.onMouseUp(event, safePos);
+          }
+        }
+
+        return false;
+      };
+    }
 
     nodeType.prototype.onConfigure = function (info) {
       originalOnConfigure?.call(this, info);
@@ -379,6 +412,7 @@ app.registerExtension({
           }
         });
       }
+
       if (this.widgets) {
         for (const outCh of ["Red", "Green", "Blue"]) {
           for (const inCh of ["Red", "Green", "Blue"]) {
@@ -391,6 +425,7 @@ app.registerExtension({
           }
         }
       }
+
       removeInputs(
         this,
         (input) =>
@@ -398,10 +433,13 @@ app.registerExtension({
           input.type === "STRING" ||
           input.type === "BOOLEAN"
       );
+
       this.forceUpdate();
     };
 
     nodeType.prototype.onAdded = function () {
+      patchNodeMouseHandlers(this);
+
       removeInputs(
         this,
         (input) =>
@@ -420,8 +458,10 @@ app.registerExtension({
 
     nodeType.prototype.onExecuted = function (message) {
       onExecutedOriginal?.apply(this, arguments);
+
       let key = message?.cache_key;
       if (Array.isArray(key)) key = key.join("");
+
       if (typeof key === "string") {
         this.previewCacheKey = key;
         this.requestPreviewUpdate();
